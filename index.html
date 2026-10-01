@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تتبع الصلوات اليومية | Daily Prayer Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 pb-12">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white shadow-md py-6 px-4">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold">تتبع الصلوات اليومية</h1>
+                <p class="text-emerald-100 text-sm mt-1">Daily Prayer Verification Tracker</p>
+            </div>
+            <div class="bg-emerald-800 px-3 py-1 rounded-lg text-xs sm:text-sm font-semibold">
+                مباشر / Live
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-3xl mx-auto px-4 mt-8 space-y-6">
+
+        <!-- Card: Log Prayer -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-xl font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <span>🕌</span> تأكيد أداء الصلاة
+            </h2>
+
+            <form id="prayerForm" onsubmit="handleFormSubmit(event)" class="space-y-5">
+                <!-- Select Prayer -->
+                <div>
+                    <label for="prayerName" class="block text-sm font-medium text-slate-700 mb-2">اختر الصلاة:</label>
+                    <select id="prayerName" required class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition bg-slate-50">
+                        <option value="الفجر">الفجر (Fajr)</option>
+                        <option value="الظهر">الظهر (Dhuhr)</option>
+                        <option value="العصر">العصر (Asr)</option>
+                        <option value="المغرب">المغرب (Maghrib)</option>
+                        <option value="العشاء">العشاء (Isha)</option>
+                    </select>
+                </div>
+
+                <!-- Verification Method Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">طريقة التوثيق:</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" id="btnMethodLocation" onclick="switchMethod('location')" 
+                            class="py-3 px-4 border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-semibold rounded-lg flex justify-center items-center gap-2 transition">
+                            📍 الموقع الجغرافي
+                        </button>
+                        <button type="button" id="btnMethodVideo" onclick="switchMethod('video')" 
+                            class="py-3 px-4 border-2 border-slate-200 text-slate-600 font-semibold rounded-lg flex justify-center items-center gap-2 transition hover:bg-slate-50">
+                            🎥 فيديو
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Method 1: Location Block -->
+                <div id="locationBlock" class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+                    <p class="text-sm text-slate-600">سيتم تحديد موقعك الجغرافي الحالي لتوثيق مكان أداء الصلاة.</p>
+                    <button type="button" onclick="detectLocation()" class="w-full sm:w-auto bg-slate-800 text-white text-sm py-2 px-4 rounded-lg hover:bg-slate-700 transition">
+                        تحديد موقعي الآن
+                    </button>
+                    <div id="locationStatus" class="text-sm font-medium text-emerald-700"></div>
+                </div>
+
+                <!-- Method 2: Video Upload Block -->
+                <div id="videoBlock" class="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3 hidden">
+                    <p class="text-sm text-slate-600">قم برفع فيديو قصير يوثق أداء الصلاة:</p>
+                    <input type="file" id="videoInput" accept="video/*" onchange="previewVideo(event)" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer">
+                    <div id="videoPreviewContainer" class="hidden mt-3">
+                        <video id="videoPreview" controls class="w-full max-h-60 rounded-lg bg-black"></video>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3.5 px-4 rounded-lg hover:bg-emerald-700 shadow-md transition">
+                    تسجيل الصلاة
+                </button>
+            </form>
+        </section>
+
+        <!-- Card: Prayer History -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <span>📋</span> سجل الصلوات الموثقة
+                </h2>
+                <button onclick="clearHistory()" class="text-xs text-red-600 hover:underline">مسح السجل</button>
+            </div>
+
+            <div id="logsContainer" class="space-y-4">
+                <p class="text-slate-400 text-center py-6">لا توجد تسجيلات حتى الآن.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let selectedMethod = 'location';
+        let currentLocationData = null;
+        let currentVideoData = null;
+
+        function switchMethod(method) {
+            selectedMethod = method;
+            const btnLoc = document.getElementById('btnMethodLocation');
+            const btnVid = document.getElementById('btnMethodVideo');
+            const locBlock = document.getElementById('locationBlock');
+            const vidBlock = document.getElementById('videoBlock');
+
+            if (method === 'location') {
+                btnLoc.className = "py-3 px-4 border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-semibold rounded-lg flex justify-center items-center gap-2 transition";
+                btnVid.className = "py-3 px-4 border-2 border-slate-200 text-slate-600 font-semibold rounded-lg flex justify-center items-center gap-2 transition hover:bg-slate-50";
+                locBlock.classList.remove('hidden');
+                vidBlock.classList.add('hidden');
+            } else {
+                btnVid.className = "py-3 px-4 border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-semibold rounded-lg flex justify-center items-center gap-2 transition";
+                btnLoc.className = "py-3 px-4 border-2 border-slate-200 text-slate-600 font-semibold rounded-lg flex justify-center items-center gap-2 transition hover:bg-slate-50";
+                vidBlock.classList.remove('hidden');
+                locBlock.classList.add('hidden');
+            }
+        }
+
+        function detectLocation() {
+            const status = document.getElementById('locationStatus');
+            if (!navigator.geolocation) {
+                status.innerText = "خاصية تحديد الموقع غير مدعومة في متصفحك.";
+                status.className = "text-sm font-medium text-red-600";
+                return;
+            }
+
+            status.innerText = "جاري جلب الموقع الجغرافي...";
+            status.className = "text-sm font-medium text-amber-600";
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    currentLocationData = {
+                        lat: lat,
+                        lng: lng,
+                        mapUrl: `https://www.google.com/maps?q=${lat},${lng}`
+                    };
+                    status.innerHTML = `تم تحديد الموقع بنجاح!<br><span class="text-xs text-slate-500">خط العرض: ${lat.toFixed(4)}، خط الطول: ${lng.toFixed(4)}</span>`;
+                    status.className = "text-sm font-medium text-emerald-700";
+                },
+                (error) => {
+                    status.innerText = "تعذر تحديد الموقع. يرجى تفعيل إذن الوصول للموقع.";
+                    status.className = "text-sm font-medium text-red-600";
+                }
+            );
+        }
+
+        function previewVideo(event) {
+            const file = event.target.files[0];
+            const container = document.getElementById('videoPreviewContainer');
+            const videoElem = document.getElementById('videoPreview');
+
+            if (file) {
+                const videoUrl = URL.createObjectURL(file);
+                videoElem.src = videoUrl;
+                currentVideoData = videoUrl;
+                container.classList.remove('hidden');
+            }
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const prayerName = document.getElementById('prayerName').value;
+            const timestamp = new Date().toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
+
+            if (selectedMethod === 'location' && !currentLocationData) {
+                alert("يرجى الضغط على 'تحديد موقعي الآن' أولاً.");
+                return;
+            }
+
+            if (selectedMethod === 'video' && !currentVideoData) {
+                alert("يرجى اختيار ملف فيديو أولاً.");
+                return;
+            }
+
+            const record = {
+                id: Date.now(),
+                prayer: prayerName,
+                time: timestamp,
+                method: selectedMethod,
+                location: currentLocationData,
+                video: currentVideoData
+            };
+
+            saveRecord(record);
+            renderRecords();
+
+            // Reset
+            currentLocationData = null;
+            currentVideoData = null;
+            document.getElementById('locationStatus').innerText = '';
+            document.getElementById('videoInput').value = '';
+            document.getElementById('videoPreviewContainer').classList.add('hidden');
+            document.getElementById('videoPreview').src = '';
+        }
+
+        function saveRecord(record) {
+            let logs = JSON.parse(localStorage.getItem('prayerLogs') || '[]');
+            logs.unshift(record);
+            localStorage.setItem('prayerLogs', JSON.stringify(logs));
+        }
+
+        function getRecords() {
+            return JSON.parse(localStorage.getItem('prayerLogs') || '[]');
+        }
+
+        function clearHistory() {
+            if (confirm("هل أنت تأكد من مسح جميع السجلات؟")) {
+                localStorage.removeItem('prayerLogs');
+                renderRecords();
+            }
+        }
+
+        function renderRecords() {
+            const logs = getRecords();
+            const container = document.getElementById('logsContainer');
+
+            if (logs.length === 0) {
+                container.innerHTML = `<p class="text-slate-400 text-center py-6">لا توجد تسجيلات حتى الآن.</p>`;
+                return;
+            }
+
+            container.innerHTML = logs.map(item => {
+                let verificationHTML = '';
+
+                if (item.method === 'location' && item.location) {
+                    verificationHTML = `
+                        <div class="mt-2 text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
+                            <span class="font-semibold text-slate-700">📍 الموقع:</span> 
+                            الإحداثيات (${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)})
+                            <a href="${item.location.mapUrl}" target="_blank" class="block mt-1 text-emerald-600 font-medium hover:underline">
+                                🔗 فتح على خرائط Google
+                            </a>
+                        </div>
+                    `;
+                } else if (item.method === 'video' && item.video) {
+                    verificationHTML = `
+                        <div class="mt-2 bg-slate-50 p-2.5 rounded border border-slate-200">
+                            <span class="text-xs font-semibold text-slate-700 block mb-1">🎥 الفيديو المرفق:</span>
+                            <video src="${item.video}" controls class="w-full max-h-48 rounded bg-black"></video>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="border border-slate-200 rounded-lg p-4 bg-white shadow-xs">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-lg font-bold text-emerald-700">صلاة ${item.prayer}</span>
+                                <span class="text-xs text-slate-400 block">${item.time}</span>
+                            </div>
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${item.method === 'location' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}">
+                                ${item.method === 'location' ? 'موثق بموقع' : 'موثق بفيديو'}
+                            </span>
+                        </div>
+                        ${verificationHTML}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initial Load
+        renderRecords();
+    </script>
+</body>
+</html>
