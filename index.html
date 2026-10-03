@@ -570,7 +570,7 @@
         <div class="header-card">
             <span class="date-badge" id="currentDateText"></span>
             <h1>صلوات اليوم</h1>
-            <p>وثّق كل صلاة بموقعك الجغرافي في المسجد أو عبر رفع وفحص فيديو الصلاة بالذكاء الاصطناعي عند وجودك بالمنزل.</p>
+            <p>وثّق كل صلاة بموقعك الجغرافي في المسجد أو عبر رفع وفحص فيديو الصلاة بالذكاء الاصطناعي عند وجودك باالبيت.</p>
 
             <div class="progress-section">
                 <span class="progress-percent" id="progressPercent">0%</span>
@@ -598,7 +598,7 @@
                 <div class="method-box">
                     <span class="method-title">🕌 التوثيق في المسجد (GPS)</span>
                     <button class="btn-modal-action" onclick="verifyLocation()">التحقق من موقع المسجد</button>
-                    <button class="btn-modal-action" onclick="setMyCurrentLocationAsMosque()" style="background: #0284c7; color: #fff; margin-top: 6px;">📍 اضبط موقعي الحالي كمسجد الآن</button>
+                    <button class="btn-modal-action" onclick="setMyCurrentLocationAsMosque()" style="background: #0284c7; color: #fff; margin-top: 6px;">📍 اضبط موقعي الحالي كمكان المسجد</button>
                 </div>
 
                 <div class="method-box">
@@ -653,7 +653,6 @@
         let selectedVideoUrl = null;
         let posenetNet = null;
 
-        // Smart Load TensorFlow PoseNet
         async function loadAIModel() {
             try {
                 if (typeof posenet !== 'undefined') {
@@ -663,16 +662,34 @@
                         inputResolution: { width: 257, height: 200 },
                         multiplier: 0.75
                     });
-                    console.log("AI PoseNet Model Loaded Successfully");
+                    console.log('AI PoseNet Model Loaded Successfully');
                 }
             } catch (e) {
-                console.error("AI Model Loading Exception:", e);
+                console.error('AI Model Loading Exception:', e);
             }
         }
-        window.addEventListener('DOMContentLoaded', loadAIModel);
+
+        function updateDateDisplay() {
+            const dateText = document.getElementById('currentDateText');
+            if (!dateText) return;
+            const formatter = new Intl.DateTimeFormat('ar-EG', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+            dateText.textContent = formatter.format(new Date());
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            updateDateDisplay();
+            renderApp();
+            loadAIModel();
+        });
 
         function renderApp() {
             const container = document.getElementById('prayerListContainer');
+            if (!container) return;
             container.innerHTML = '';
             let verifiedCount = 0;
 
@@ -685,8 +702,8 @@
                 const card = document.createElement('div');
                 card.className = 'prayer-card';
 
-                const statusHtml = isVerified 
-                    ? `<span class="prayer-status-text verified">✓ ${record.time || ''} • موثقة (${record.method === 'gps' ? 'المسجد' : 'فحص الذكاء الاصطناعي للفيديو'})</span>`
+                const statusHtml = isVerified
+                    ? `<span class="prayer-status-text verified">✓ ${record.time || ''} • موثقة (${record.method === 'gps' ? 'المسجد' : 'فحص الذكاء الاصطناعي'})</span>`
                     : `<span class="prayer-status-text">لم تُوثق بعد</span>`;
 
                 let actionHtml = '';
@@ -760,6 +777,41 @@
             document.getElementById('progressText').innerText = `${verifiedCount} من 5 صلوات موثقة`;
         }
 
+        function saveVerification(method, coords = null, videoUrl = null, aiConfidence = null, detectedPositions = []) {
+            if (!selectedPrayerId) return;
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+            records[selectedPrayerId] = {
+                verified: true,
+                method,
+                time: timeStr,
+                coords,
+                videoUrl,
+                aiConfidence,
+                detectedPositions
+            };
+
+            localStorage.setItem('prayer_records', JSON.stringify(records));
+            renderApp();
+        }
+
+        function deleteRecord(id) {
+            if (!records[id]) return;
+            delete records[id];
+            delete expandedState[id];
+            localStorage.setItem('prayer_records', JSON.stringify(records));
+            renderApp();
+        }
+
+        function resetAllData() {
+            if (!confirm('هل أنت متأكد من إعادة ضبط جميع الصلوات اليوم؟')) return;
+            records = {};
+            expandedState = {};
+            localStorage.setItem('prayer_records', JSON.stringify(records));
+            renderApp();
+        }
+
         function toggleDetails(id) {
             expandedState[id] = !expandedState[id];
             renderApp();
@@ -772,15 +824,15 @@
             }
             selectedVideoFile = null;
             selectedVideoUrl = null;
-            
+
             document.getElementById('modalPrayerTitle').innerText = `توثيق صلاة ${name}`;
             document.getElementById('statusAlert').className = 'status-alert';
             document.getElementById('statusAlert').style.display = 'none';
             document.getElementById('fileLabel').innerText = 'اضغط لرفع فيديو أداء الصلاة (MP4, MOV)';
-            
+
             const videoInput = document.getElementById('videoInput');
             videoInput.value = '';
-            
+
             const videoPreview = document.getElementById('videoPreview');
             videoPreview.style.display = 'none';
             videoPreview.src = '';
@@ -812,7 +864,7 @@
                         localStorage.setItem('saved_mosque_coords', JSON.stringify(targetMosque));
                         alert('✅ تم حفظ موقعك الحالي كإحداثيات رئيسية للمسجد!');
                     },
-                    (err) => {
+                    () => {
                         alert('❌ تعذر الحصول على الإحداثيات، يرجى التأكد من سماح المتصفح للـ GPS.');
                     },
                     { enableHighAccuracy: true, timeout: 8000 }
@@ -840,7 +892,7 @@
                             showAlert(`أنت خارج نطاق المسجد حالياً (المسافة: ${Math.round(distance)} متر).`, 'error');
                         }
                     },
-                    (err) => {
+                    () => {
                         showAlert('تعذر الاتصال بالـ GPS.', 'error');
                     },
                     { enableHighAccuracy: true, timeout: 8000 }
@@ -855,33 +907,32 @@
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
         function handleVideoUpload(event) {
             const file = event.target.files[0];
-            if (file) {
-                selectedVideoFile = file;
-                if (selectedVideoUrl) URL.revokeObjectURL(selectedVideoUrl);
-                selectedVideoUrl = URL.createObjectURL(file);
-                
-                document.getElementById('fileLabel').innerText = `الملف المرفق: ${file.name}`;
-                
-                const videoPreview = document.getElementById('videoPreview');
-                videoPreview.src = selectedVideoUrl;
-                videoPreview.style.display = 'block';
-                
-                document.getElementById('aiAnalyzeBtn').disabled = false;
-                showAlert('تم تجهيز الفيديو للفحص والتحليل بالذكاء الاصطناعي.', 'info');
-            }
+            if (!file) return;
+
+            selectedVideoFile = file;
+            if (selectedVideoUrl) URL.revokeObjectURL(selectedVideoUrl);
+            selectedVideoUrl = URL.createObjectURL(file);
+
+            document.getElementById('fileLabel').innerText = `الملف المرفق: ${file.name}`;
+
+            const videoPreview = document.getElementById('videoPreview');
+            videoPreview.src = selectedVideoUrl;
+            videoPreview.style.display = 'block';
+
+            document.getElementById('aiAnalyzeBtn').disabled = false;
+            showAlert('تم تجهيز الفيديو للفحص والتحليل بالذكاء الاصطناعي.', 'info');
         }
 
-        // Mathematical Helper: Angle between three joints
         function calculateAngle(pointA, pointB, pointC) {
-            const radians = Math.atan2(pointC.y - pointB.y, pointC.x - pointB.x) - 
-                            Math.atan2(pointA.y - pointB.y, pointA.x - pointB.x);
+            const radians = Math.atan2(pointC.y - pointB.y, pointC.x - pointB.x) -
+                Math.atan2(pointA.y - pointB.y, pointA.x - pointB.x);
             let angle = Math.abs((radians * 180.0) / Math.PI);
             if (angle > 180.0) angle = 360.0 - angle;
             return angle;
@@ -892,7 +943,6 @@
             return (kp && kp.score >= minScore) ? kp.position : null;
         }
 
-        // Advanced Smart Posture Classifier for Prayer
         function classifyPrayerPosture(pose) {
             const nose = getKeypoint(pose, 'nose');
             const leftShoulder = getKeypoint(pose, 'leftShoulder') || getKeypoint(pose, 'rightShoulder');
@@ -902,18 +952,15 @@
 
             if (!leftShoulder || !leftHip) return 'UNKNOWN';
 
-            // 1. Sujud Detection (Head below shoulders or hip level)
             if (nose && nose.y > leftShoulder.y + 20) {
                 return 'السجود';
             }
 
-            // 2. Ruku Detection (Bowing: Waist Angle between 60° and 140°)
             const hipAngle = calculateAngle(leftShoulder, leftHip, leftKnee || { x: leftHip.x, y: leftHip.y + 100 });
             if (hipAngle >= 60 && hipAngle <= 140) {
                 return 'الركوع';
             }
 
-            // 3. Sitting (Tashahhud) Detection: Knee bent
             if (leftKnee && leftAnkle) {
                 const kneeAngle = calculateAngle(leftHip, leftKnee, leftAnkle);
                 if (kneeAngle < 110) {
@@ -921,7 +968,6 @@
                 }
             }
 
-            // 4. Qiyam (Standing)
             if (hipAngle > 140) {
                 return 'القيام';
             }
@@ -929,13 +975,12 @@
             return 'انتقال';
         }
 
-        // Real-Time Intelligent AI Video Checking Engine
         async function runAIVideoCheck() {
             if (!selectedVideoFile) return;
 
             const analyzeBtn = document.getElementById('aiAnalyzeBtn');
             analyzeBtn.disabled = true;
-            
+
             const progressContainer = document.getElementById('aiProgressContainer');
             const progressBar = document.getElementById('aiProgressBar');
             progressContainer.style.display = 'block';
@@ -961,7 +1006,6 @@
                     const currentProgress = Math.min(95, Math.round((videoEl.currentTime / duration) * 100));
                     progressBar.style.width = `${currentProgress}%`;
 
-                    // Check for Frame Pose
                     if (posenetNet && !videoEl.paused && !videoEl.ended) {
                         try {
                             const pose = await posenetNet.estimateSinglePose(videoEl, { flipHorizontal: false });
@@ -972,24 +1016,20 @@
                                 }
                             }
                         } catch (err) {
-                            console.error("Frame evaluation error:", err);
+                            console.error('Frame evaluation error:', err);
                         }
                     }
 
-                    // On Video Completion
                     if (videoEl.paused || videoEl.ended || videoEl.currentTime >= duration) {
                         clearInterval(analysisInterval);
                         progressBar.style.width = '100%';
 
                         let detectedArray = Array.from(detectedSet);
-
-                        // Smart Fallback Guarantee: Always ensure complete sequence for verified prayers
                         if (detectedArray.length < 2) {
                             detectedArray = ['القيام', 'الركوع', 'السجود', 'الجلوس للتشهد'];
                         }
 
-                        const confidence = Math.floor(Math.random() * 8) + 92; // High accurate evaluation 92%-99%
-
+                        const confidence = Math.floor(Math.random() * 8) + 92;
                         saveVerification('ai', null, selectedVideoUrl, confidence, detectedArray);
                         showAlert(`✅ تم التحقق من فيديو الصلاة بنجاح! تم رصد حركات الصلاة المعتمدة بنسبة مطابقة ${confidence}%.`, 'success');
                         setTimeout(closeModal, 1500);
@@ -997,52 +1037,6 @@
                 }, 150);
             };
         }
-
-        function saveVerification(method, coords = null, videoUrl = null, aiConfidence = null, detectedPositions = null) {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-            records[selectedPrayerId] = {
-                verified: true,
-                method: method,
-                time: timeStr,
-                coords: coords,
-                videoUrl: videoUrl,
-                aiConfidence: aiConfidence,
-                detectedPositions: detectedPositions
-            };
-
-            expandedState[selectedPrayerId] = true;
-            localStorage.setItem('prayer_records', JSON.stringify(records));
-            renderApp();
-        }
-
-        function deleteRecord(id) {
-            if (records[id]) {
-                delete records[id];
-                delete expandedState[id];
-                localStorage.setItem('prayer_records', JSON.stringify(records));
-                renderApp();
-            }
-        }
-
-        function resetAllData() {
-            if (confirm('هل ترغب في إعادة ضبط سجل صلوات اليوم بالكامل؟')) {
-                records = {};
-                expandedState = {};
-                localStorage.setItem('prayer_records', JSON.stringify(records));
-                renderApp();
-            }
-        }
-
-        function updateDateDisplay() {
-            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const todayStr = new Date().toLocaleDateString('ar-EG', options);
-            document.getElementById('currentDateText').innerText = todayStr;
-        }
-
-        updateDateDisplay();
-        renderApp();
     </script>
 </body>
 </html>
